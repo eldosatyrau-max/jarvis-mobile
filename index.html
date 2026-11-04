@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#070b14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Jarvis">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>J.A.R.V.I.S.</title>
+<style>
+:root{
+  --bg:#070b14;--panel:#0f1628;--panel2:#141d33;--border:#1f2b47;
+  --accent:#22d3ee;--accent-dim:#0e7490;--user:#1d4ed8;--text:#e5edf7;--muted:#7c8aa5;
+  --listen:#f472b6;--ok:#34d399;--danger:#f87171;
+  --safe-top:env(safe-area-inset-top,0px);--safe-bot:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;overflow:hidden}
+body{display:flex;flex-direction:column;
+  background:radial-gradient(120% 60% at 50% -10%,#0c2236 0%,var(--bg) 60%)}
+header{padding:calc(var(--safe-top) + 12px) 18px 10px;display:flex;align-items:center;gap:12px}
+.title{flex:1;min-width:0}
+.title h1{margin:0;font-size:20px;letter-spacing:3px;color:var(--accent);font-weight:700}
+#status{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#status.live{color:var(--ok)} #status.hot{color:var(--listen)}
+.icon-btn{width:42px;height:42px;border-radius:12px;border:1px solid var(--border);background:var(--panel);
+  color:var(--text);display:grid;place-items:center;cursor:pointer}
+.icon-btn svg{width:20px;height:20px}
+
+/* reactor */
+.reactor{position:relative;width:46px;height:46px;flex:none}
+.reactor .ring,.reactor .ring2{position:absolute;inset:0;border-radius:50%;
+  border:3px solid transparent;border-top-color:var(--c,var(--accent));border-right-color:var(--c,var(--accent));
+  animation:spin 3s linear infinite}
+.reactor .ring2{inset:9px;border-width:2px;border-top-color:transparent;border-left-color:var(--c,var(--accent));
+  border-bottom-color:var(--c,var(--accent));animation-duration:2s;animation-direction:reverse}
+.reactor .core{position:absolute;inset:17px;border-radius:50%;background:var(--c,var(--accent));
+  box-shadow:0 0 16px var(--c,var(--accent));animation:pulse 1.6s ease-in-out infinite}
+.reactor.big{width:170px;height:170px}
+.reactor.big .ring{border-width:6px}.reactor.big .ring2{inset:30px;border-width:4px}
+.reactor.big .core{inset:62px}
+.reactor.listening{--c:var(--listen)} .reactor.listening .ring{animation-duration:.9s}
+.reactor.speaking{--c:var(--ok)} .reactor.speaking .ring{animation-duration:1.4s}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{50%{transform:scale(.82);opacity:.75}}
+
+/* chat */
+#chat{flex:1;overflow-y:auto;padding:8px 14px 12px;scroll-behavior:smooth}
+.msg{display:flex;margin:8px 0;gap:8px;animation:in .25s ease-out}
+.msg.user{justify-content:flex-end}
+.bubble{max-width:82%;padding:10px 14px;border-radius:18px;line-height:1.38;font-size:15.5px;white-space:pre-wrap;word-wrap:break-word}
+.msg.user .bubble{background:var(--user);color:#fff;border-bottom-right-radius:6px}
+.msg.jarvis .bubble{background:var(--panel2);border:1px solid var(--border);border-bottom-left-radius:6px}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--accent-dim);color:#fff;font-weight:700;
+  font-size:13px;display:grid;place-items:center;flex:none;margin-top:2px}
+.bubble a.go{display:inline-block;margin-top:8px;padding:7px 14px;border-radius:999px;background:var(--accent);
+  color:#04121a;font-weight:600;text-decoration:none;font-size:14px}
+.hint{color:var(--muted);font-size:12.5px;text-align:center;margin:6px 0 2px}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+
+#interim{min-height:20px;padding:0 18px;color:var(--listen);font-size:14px;font-style:italic;text-align:center}
+
+/* chips */
+#chips{display:flex;gap:8px;overflow-x:auto;padding:4px 14px 8px;scrollbar-width:none}
+#chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:8px 13px;border-radius:999px;background:var(--panel);border:1px solid var(--border);
+  color:var(--accent);font-size:13.5px;cursor:pointer}
+
+/* input */
+.bar{display:flex;align-items:center;gap:8px;padding:8px 12px calc(var(--safe-bot) + 12px)}
+.field{flex:1;display:flex;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:0 6px 0 16px}
+.field input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--text);font-size:16px;padding:13px 0}
+.field button{background:none;border:0;color:var(--accent);padding:8px;cursor:pointer}
+#mic{width:60px;height:60px;border-radius:50%;border:0;flex:none;cursor:pointer;
+  background:linear-gradient(145deg,#22d3ee,#0e7490);color:#04121a;display:grid;place-items:center;
+  box-shadow:0 6px 22px rgba(34,211,238,.35);transition:transform .15s}
+#mic:active{transform:scale(.94)}
+#mic.on{background:linear-gradient(145deg,#f472b6,#be185d);color:#fff;box-shadow:0 0 0 0 rgba(244,114,182,.6);animation:ring 1.4s infinite}
+#mic svg{width:26px;height:26px}
+@keyframes ring{70%{box-shadow:0 0 0 16px rgba(244,114,182,0)}100%{box-shadow:0 0 0 0 rgba(244,114,182,0)}}
+
+/* always-on toggle row */
+.mode{display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--muted);padding:0 0 4px}
+.switch{position:relative;width:44px;height:26px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--panel2);border:1px solid var(--border);border-radius:999px;transition:.2s}
+.switch span:before{content:"";position:absolute;width:20px;height:20px;left:2px;top:2px;border-radius:50%;background:var(--muted);transition:.2s}
+.switch input:checked+span{background:#0e3b48;border-color:var(--accent)}
+.switch input:checked+span:before{transform:translateX(18px);background:var(--accent)}
+
+/* sheet */
+#sheet{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-end;z-index:10}
+#sheet.open{display:flex}
+.panel{width:100%;max-height:88%;overflow-y:auto;background:var(--panel);border-top:1px solid var(--border);
+  border-radius:22px 22px 0 0;padding:10px 18px calc(var(--safe-bot) + 20px);animation:up .25s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:.5}}
+.grab{width:42px;height:5px;border-radius:9px;background:var(--border);margin:4px auto 12px}
+.panel h2{margin:0 0 12px;font-size:18px}
+.panel h3{margin:18px 0 8px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.presets{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.preset{padding:12px;border-radius:14px;background:var(--panel2);border:1px solid var(--border);color:var(--text);text-align:left;cursor:pointer;font-size:14px}
+.preset b{display:block;font-size:15px;margin-bottom:2px}
+.preset small{color:var(--muted)}
+.preset.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+select,.panel input[type=text]{width:100%;padding:12px;border-radius:12px;background:var(--panel2);color:var(--text);border:1px solid var(--border);font-size:15px}
+.slider{display:flex;align-items:center;gap:12px;margin:10px 0}
+.slider label{width:92px;font-size:14px;color:var(--muted)}
+.slider input{flex:1;accent-color:var(--accent)}
+.slider output{width:38px;text-align:right;font-variant-numeric:tabular-nums;font-size:14px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:15px}
+.row small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.btn{width:100%;padding:14px;border-radius:14px;border:0;background:var(--accent);color:#04121a;font-weight:700;font-size:15px;margin-top:14px;cursor:pointer}
+.btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+
+/* splash */
+#splash{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;z-index:20;padding:24px;text-align:center}
+#splash h1{margin:0;letter-spacing:6px;color:var(--accent);font-size:30px}
+#splash p{margin:0;color:var(--muted);max-width:320px;line-height:1.45}
+#splash .btn{max-width:320px}
+#warn{color:var(--danger)!important;font-size:14px}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="reactor big"><div class="ring"></div><div class="ring2"></div><div class="core"></div></div>
+  <h1>J.A.R.V.I.S.</h1>
+  <p>Ваш голосовой помощник. Скажите «Джарвис» — и он ответит.</p>
+  <p id="warn" hidden></p>
+  <button class="btn" id="start">Запустить</button>
+</div>
+
+<header>
+  <div class="reactor" id="reactor"><div class="ring"></div><div class="ring2"></div><div class="core"></div></div>
+  <div class="title"><h1>J.A.R.V.I.S.</h1><div id="status">Готов</div></div>
+  <button class="icon-btn" id="openSettings" aria-label="Настройки">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+</header>
+
+<main id="chat"></main>
+<div id="interim"></div>
+<div id="chips"></div>
+<div class="mode">
+  <span>Всегда слушать</span>
+  <label class="switch"><input type="checkbox" id="always"><span></span></label>
+  <span id="modeHint">выкл</span>
+</div>
+<div class="bar">
+  <form class="field" id="form">
+    <input id="text" autocomplete="off" placeholder="Напишите команду…" enterkeyhint="send">
+    <button type="submit" aria-label="Отправить"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.3 10l12.6 2-12.6 2z"/></svg></button>
+  </form>
+  <button id="mic" aria-label="Говорить">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v7a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12z"/></svg>
+  </button>
+</div>
+
+<div id="sheet">
+  <div class="panel" id="panel">
+    <div class="grab"></div>
+    <h2>Настройки</h2>
+
+    <h3>Характер голоса</h3>
+    <div class="presets" id="presets"></div>
+
+    <h3>Голос телефона</h3>
+    <select id="voice"></select>
+    <div class="slider"><label>Скорость</label><input type="range" id="rate" min="0.5" max="2" step="0.05"><output id="rateOut"></output></div>
+    <div class="slider"><label>Высота</label><input type="range" id="pitch" min="0" max="2" step="0.05"><output id="pitchOut"></output></div>
+    <div class="slider"><label>Громкость</label><input type="range" id="volume" min="0" max="1" step="0.05"><output id="volOut"></output></div>
+    <button class="btn ghost" id="testVoice">▶ Прослушать голос</button>
+
+    <h3>Прослушивание</h3>
+    <div class="row"><div>Только после слова «Джарвис»<small>Иначе реагирует на любую фразу</small></div>
+      <label class="switch"><input type="checkbox" id="wakeOnly"><span></span></label></div>
+    <div class="row"><div>Не гасить экран<small>Чтобы Jarvis слушал постоянно</small></div>
+      <label class="switch"><input type="checkbox" id="keepAwake"><span></span></label></div>
+    <div class="row"><div>Отвечать голосом<small>Выключите, чтобы только писал</small></div>
+      <label class="switch"><input type="checkbox" id="speakOn"><span></span></label></div>
+
+    <h3>Имя</h3>
+    <input type="text" id="userName" placeholder="Как к вам обращаться (необязательно)">
+
+    <button class="btn" id="closeSettings">Готово</button>
+    <button class="btn ghost" id="clearChat">Очистить чат</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---------------- storage ---------------- */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("jarvis."+k); return v===null? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem("jarvis."+k, JSON.stringify(v)); }catch(e){} }
+};
+const settings = Object.assign({
+  preset:"jarvis", voiceURI:"", rate:1, pitch:0.8, volume:1,
+  wakeOnly:true, keepAwake:true, speakOn:true, always:false, userName:""
+}, store.get("settings", {}));
+const save = () => store.set("settings", settings);
+
+/* ---------------- dom ---------------- */
+const $ = id => document.getElementById(id);
+const chat=$("chat"), statusEl=$("status"), reactor=$("reactor"), interimEl=$("interim"), micBtn=$("mic");
+
+function setStatus(text, cls){ statusEl.textContent=text; statusEl.className=cls||""; }
+function scroll(){ requestAnimationFrame(()=>chat.scrollTop=chat.scrollHeight); }
+function addMsg(text, who, link){
+  const m=document.createElement("div"); m.className="msg "+who;
+  if(who==="jarvis"){ const a=document.createElement("div"); a.className="avatar"; a.textContent="J"; m.appendChild(a); }
+  const b=document.createElement("div"); b.className="bubble"; b.textContent=text;
+  if(link){ const a=document.createElement("a"); a.className="go"; a.href=link.url; a.target="_blank"; a.rel="noopener"; a.textContent=link.label||"Открыть →"; b.appendChild(document.createElement("br")); b.appendChild(a); }
+  m.appendChild(b); chat.appendChild(m); scroll();
+  const hist=store.get("history",[]); hist.push({text,who,link}); store.set("history",hist.slice(-60));
+}
+function hint(text){ const h=document.createElement("div"); h.className="hint"; h.textContent=text; chat.appendChild(h); scroll(); }
+
+/* ---------------- speech output ---------------- */
+const synth = window.speechSynthesis;
+let voices=[];
+const PRESETS = {
+  jarvis:{name:"Джарвис",desc:"Спокойный, низкий",rate:0.95,pitch:0.75},
+  friday:{name:"Пятница",desc:"Лёгкий, приветливый",rate:1.05,pitch:1.25},
+  robot:{name:"Робот",desc:"Механический",rate:0.85,pitch:0.1},
+  fast:{name:"Диктор",desc:"Быстрый, чёткий",rate:1.35,pitch:1},
+  cartoon:{name:"Мультяшный",desc:"Высокий, смешной",rate:1.15,pitch:2},
+  deep:{name:"Бас",desc:"Очень низкий",rate:0.8,pitch:0},
+};
+function loadVoices(){
+  if(!synth) return;
+  voices = synth.getVoices().slice().sort((a,b)=>{
+    const ar=a.lang.toLowerCase().startsWith("ru"), br=b.lang.toLowerCase().startsWith("ru");
+    return ar===br ? a.name.localeCompare(b.name) : ar? -1 : 1;
+  });
+  const sel=$("voice"); sel.innerHTML="";
+  const auto=document.createElement("option"); auto.value=""; auto.textContent="Автоматически (русский)"; sel.appendChild(auto);
+  voices.forEach(v=>{ const o=document.createElement("option"); o.value=v.voiceURI; o.textContent=`${v.name} · ${v.lang}`; sel.appendChild(o); });
+  sel.value = voices.some(v=>v.voiceURI===settings.voiceURI) ? settings.voiceURI : "";
+}
+if(synth){ loadVoices(); synth.onvoiceschanged=loadVoices; }
+function pickVoice(){
+  return voices.find(v=>v.voiceURI===settings.voiceURI) || voices.find(v=>v.lang.toLowerCase().startsWith("ru")) || null;
+}
+let speaking=false;
+function speak(text, done){
+  if(!settings.speakOn || !synth){ done&&done(); return; }
+  const clean=text.replace(/[•⏰«»→]/g,"").replace(/\n+/g,". ");
+  synth.cancel();
+  const u=new SpeechSynthesisUtterance(clean);
+  const v=pickVoice(); if(v){ u.voice=v; u.lang=v.lang; } else u.lang="ru-RU";
+  u.rate=settings.rate; u.pitch=settings.pitch; u.volume=settings.volume;
+  u.onstart=()=>{ speaking=true; pauseListening(); reactor.className="reactor speaking"; setStatus("Говорю…","live"); };
+  const end=()=>{ speaking=false; reactor.className="reactor"; resumeListening(); done&&done(); };
+  u.onend=end; u.onerror=end;
+  synth.speak(u);
+}
+function reply(text, link){ addMsg(text,"jarvis",link); speak(text); }
+
+/* ---------------- commands ---------------- */
+const SITES = [
+  [["google","гугл"],"https://www.google.com"],
+  [["youtube","ютуб","ютюб"],"https://m.youtube.com"],
+  [["википедию","википедия","вики","wikipedia"],"https://ru.m.wikipedia.org"],
+  [["почту","почта","gmail"],"https://mail.google.com"],
+  [["карты","карту","2гис"],"https://2gis.kz"],
+  [["переводчик"],"https://translate.google.com"],
+  [["вк","вконтакте"],"https://vk.com"],
+  [["инстаграм","instagram"],"https://www.instagram.com"],
+  [["ватсап","whatsapp","вотсап"],"https://wa.me/"],
+  [["телеграм","telegram"],"https://t.me/"],
+  [["каспи","kaspi"],"https://kaspi.kz"],
+  [["егов","egov"],"https://egov.kz"],
+  [["тикток","tiktok"],"https://www.tiktok.com"],
+  [["github","гитхаб"],"https://github.com"],
+  [["chatgpt","чатгпт","чат gpt"],"https://chatgpt.com"],
+  [["claude","клод"],"https://claude.ai"],
+  [["музыку","яндекс музыку"],"https://music.yandex.kz"],
+];
+const JOKES = [
+  "Программист ставит на тумбочку два стакана: с водой — если захочет пить, и пустой — если не захочет.",
+  "Хотел рассказать шутку про UDP, но не уверен, что она до вас дойдёт.",
+  "Оптимист верит, что мы живём в лучшем из миров. Пессимист боится, что так и есть.",
+  "Почему Джарвис не ходит в спортзал? Он и так работает без выходных.",
+  "Сказал жене, что ухожу в облако. Она до сих пор ищет меня на чердаке.",
+  "Мой телефон умнее меня. Но, к счастью, у меня есть зарядка, а у него — нет.",
+];
+const MONTHS=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+const DAYS=["воскресенье","понедельник","вторник","среда","четверг","пятница","суббота"];
+const HELP = "Вот что я умею:\n• «который час», «какое сегодня число»\n• «открой ютуб / каспи / ватсап / почту»\n• «найди рецепт плова», «что такое квант»\n• «включи Imagine Dragons» — YouTube\n• «погода в Атырау»\n• «переведи доброе утро»\n• «посчитай 15 умножить на 4»\n• «запиши купить хлеб», «покажи заметки»\n• «поставь таймер на 5 минут»\n• «заряд батареи»\n• «смени голос», «говори быстрее / медленнее / громче / тише»\n• «расскажи шутку», «стоп», «пока»";
+
+function norm(t){
+  return t.toLowerCase().replace(/ё/g,"е").replace(/[!?.,]+$/,"").replace(/\s+/g," ").trim()
+    .replace(/^(джарвис|жарвис|джервис|jarvis)[,\s]*/,"")
+    .replace(/^пожалуйста\s+/,"").replace(/,?\s*пожалуйста$/,"");
+}
+function after(t, prefixes){
+  for(const p of prefixes.slice().sort((a,b)=>b.length-a.length)){
+    if(t===p) return "";
+    if(t.startsWith(p+" ")) return t.slice(p.length).trim();
+  }
+  return null;
+}
+const is = (t, list) => list.includes(t);
+const q = s => encodeURIComponent(s);
+
+function greeting(){ const h=new Date().getHours(); return h<5?"Доброй ночи":h<12?"Доброе утро":h<18?"Добрый день":h<23?"Добрый вечер":"Доброй ночи"; }
+function name(){ return settings.userName ? ", "+settings.userName : ""; }
+
+function calc(expr){
+  let e=expr.toLowerCase()
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:процентов|процента|процент|%)\s*от\s*(\d+(?:[.,]\d+)?)/g,"($1/100*$2)")
+    .replace(/умножить на|умножь на|умножить|×|\bх\b|\bx\b/g,"*")
+    .replace(/разделить на|поделить на|делить на|÷/g,"/")
+    .replace(/плюс/g,"+").replace(/минус/g,"-").replace(/в степени/g,"**")
+    .replace(/,/g,".").replace(/\^/g,"**").replace(/[^0-9+\-*/%.() ]/g,"");
+  if(!/\d/.test(e)) throw 0;
+  // tiny safe parser
+  let i=0; const s=e.replace(/\s+/g,"");
+  const peek=()=>s[i];
+  function num(){ let st=i; while(i<s.length && /[0-9.]/.test(s[i])) i++; if(st===i) throw 0; return parseFloat(s.slice(st,i)); }
+  function factor(){ if(peek()==="-"){i++;return -factor();} if(peek()==="+"){i++;return factor();}
+    if(peek()==="("){i++; const v=expr2(); if(s[i++]!==")") throw 0; return v;} return num(); }
+  function power(){ let b=factor(); if(s.slice(i,i+2)==="**"){ i+=2; const ex=power(); if(Math.abs(ex)>100) throw 0; return Math.pow(b,ex);} return b; }
+  function term(){ let v=power(); while(true){ if(s.slice(i,i+2)==="**") break; const c=peek();
+    if(c==="*"){i++; v*=power();} else if(c==="/"){i++; const d=power(); if(d===0) throw "zero"; v/=d;} else if(c==="%"){i++; v%=power();} else break; } return v; }
+  function expr2(){ let v=term(); while(peek()==="+"||peek()==="-"){ const c=s[i++]; const t=term(); v= c==="+"? v+t : v-t; } return v; }
+  const r=expr2(); if(i!==s.length || !isFinite(r)) throw 0; return r;
+}
+function fmt(n){ return Number.isInteger(n)? n.toLocaleString("ru-RU") : (+n.toPrecision(8)).toLocaleString("ru-RU"); }
+
+const NUMW={"одну":1,"одна":1,"один":1,"две":2,"два":2,"три":3,"четыре":4,"пять":5,"шесть":6,"семь":7,"восемь":8,"девять":9,"десять":10,"пятнадцать":15,"двадцать":20,"тридцать":30,"сорок":40};
+function duration(t){
+  if(t.includes("полчаса")) return 1800;
+  let total=0; const re=/(\d+|[а-я]+)\s*(сек|мин|час|ч\b|м\b|с\b)/g; let m;
+  while((m=re.exec(t))){ const n=/^\d+$/.test(m[1])?+m[1]:NUMW[m[1]]; if(!n) continue;
+    total+= n*(m[2][0]==="ч"?3600:m[2][0]==="м"?60:1); }
+  if(!total){ if(/^\d+$/.test(t.trim())) total=+t.trim()*60; else if(/минут/.test(t)) total=60; }
+  return total||null;
+}
+function human(sec){ const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
+  return [h&&h+" ч", m&&m+" мин", s&&s+" сек"].filter(Boolean).join(" "); }
+function beep(){
+  try{ const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    [0,0.35,0.7].forEach(t=>{ const o=ctx.createOscillator(), g=ctx.createGain(); o.frequency.value=880; o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.25,ctx.currentTime+t); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+t+0.3); o.start(ctx.currentTime+t); o.stop(ctx.currentTime+t+0.3); });
+  }catch(e){}
+  if(navigator.vibrate) navigator.vibrate([300,150,300,150,300]);
+}
+
+function openLink(url, text, label){
+  addMsg(text,"jarvis",{url,label});
+  speak(text);
+  try{ const w=window.open(url,"_blank"); if(!w) throw 0; }catch(e){ /* button in chat stays */ }
+}
+
+function applyPreset(key, announce){
+  const p=PRESETS[key]; if(!p) return;
+  settings.preset=key; settings.rate=p.rate; settings.pitch=p.pitch; save(); syncSettingsUI();
+  if(announce) reply(`Голос «${p.name}» включён.`);
+}
+
+function handle(raw){
+  const t=norm(raw); if(!t) return;
+  let a;
+  if(is(t,["стоп","замолчи","хватит","тихо","отмена"])){ synth&&synth.cancel(); return reply("Хорошо."); }
+  if(is(t,["пока","выход","до свидания","спи","отключись","выключись"])){
+    setAlways(false); return reply("До связи"+name()+". Включите меня, когда понадоблюсь."); }
+  if(is(t,["который час","сколько времени","время","скажи время"])){
+    const d=new Date(); return reply(`Сейчас ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}.`); }
+  if(is(t,["какое сегодня число","какая сегодня дата","дата","какой сегодня день","скажи дату"])){
+    const d=new Date(); return reply(`Сегодня ${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} года.`); }
+  if(is(t,["привет","здравствуй","здравствуйте","салам","сәлем","добрый день","доброе утро","добрый вечер","хай"])) return reply(`${greeting()}${name()}! Чем могу помочь?`);
+  if(is(t,["как дела","как ты","как поживаешь"])) return reply("Все системы работают в штатном режиме. А у вас как?");
+  if(is(t,["кто ты","как тебя зовут","ты кто"])) return reply("Я Джарвис — ваш личный помощник. Скажите «что ты умеешь».");
+  if(is(t,["спасибо","благодарю","рахмет","молодец"])) return reply("Всегда пожалуйста"+name()+"!");
+  if(is(t,["что ты умеешь","помощь","команды","help"])) return reply(HELP);
+  if(is(t,["расскажи шутку","шутка","пошути","расскажи анекдот","анекдот"])) return reply(JOKES[Math.floor(Math.random()*JOKES.length)]);
+  if(is(t,["покажи заметки","мои заметки","заметки","что я записал"])){
+    const n=store.get("notes",[]); return reply(n.length? "Ваши заметки:\n"+n.slice(-7).join("\n") : "Заметок пока нет. Скажите «запиши …»."); }
+  if(is(t,["очисти заметки","удали заметки"])){ store.set("notes",[]); return reply("Заметки очищены."); }
+  if(is(t,["заряд батареи","батарея","сколько заряда","заряд"])){
+    if(!navigator.getBattery) return reply("Этот браузер не показывает заряд батареи.");
+    return navigator.getBattery().then(b=>reply(`Заряд ${Math.round(b.level*100)}%${b.charging?", заряжается":""}.`)); }
+  if(is(t,["смени голос","другой голос","поменяй голос","следующий голос"])){
+    const keys=Object.keys(PRESETS); return applyPreset(keys[(keys.indexOf(settings.preset)+1)%keys.length], true); }
+  if(is(t,["говори быстрее","быстрее"])){ settings.rate=Math.min(2,+(settings.rate+0.2).toFixed(2)); save(); syncSettingsUI(); return reply("Говорю быстрее."); }
+  if(is(t,["говори медленнее","медленнее"])){ settings.rate=Math.max(0.5,+(settings.rate-0.2).toFixed(2)); save(); syncSettingsUI(); return reply("Говорю медленнее."); }
+  if(is(t,["громче","говори громче"])){ settings.volume=Math.min(1,+(settings.volume+0.25).toFixed(2)); save(); syncSettingsUI(); return reply("Громче."); }
+  if(is(t,["тише","говори тише"])){ settings.volume=Math.max(0.1,+(settings.volume-0.25).toFixed(2)); save(); syncSettingsUI(); return reply("Тише."); }
+  if(is(t,["погода","какая погода","какая сегодня погода"])) return openLink("https://www.google.com/search?q="+q("погода сегодня"),"Открываю прогноз погоды.");
+
+  for(const [k] of Object.entries(PRESETS)){ if(t==="голос "+PRESETS[k].name.toLowerCase()) return applyPreset(k,true); }
+
+  if((a=after(t,["меня зовут","зови меня"]))){ settings.userName=a.replace(/^./,c=>c.toUpperCase()); save(); syncSettingsUI(); return reply(`Приятно познакомиться, ${settings.userName}!`); }
+  if((a=after(t,["найди на ютубе","включи на ютубе","включи песню","включи музыку","включи"]))) return openLink("https://m.youtube.com/results?search_query="+q(a),`Ищу на YouTube «${a}».`);
+  if((a=after(t,["что такое","кто такой","кто такая","расскажи про","расскажи о"]))) return openLink("https://ru.m.wikipedia.org/w/index.php?search="+q(a),`Открываю Википедию: «${a}».`);
+  if((a=after(t,["погода в","какая погода в","погода"]))!==null) return openLink("https://www.google.com/search?q="+q("погода "+(a||"сегодня")),"Открываю прогноз погоды.");
+  if((a=after(t,["переведи на английский","переведи"]))) return openLink("https://translate.google.com/?sl=auto&tl=en&op=translate&text="+q(a),"Открываю перевод.");
+  if((a=after(t,["посчитай","сколько будет","вычисли","реши"]))){
+    try{ return reply("Получается "+fmt(calc(a))+"."); }
+    catch(e){ return reply(e==="zero"?"На ноль делить нельзя.":"Не смог посчитать. Скажите, например: «посчитай 25 умножить на 4»."); } }
+  if((a=after(t,["запиши заметку","запиши","запомни","заметка"]))){
+    const n=store.get("notes",[]); const d=new Date();
+    n.push(`${d.getDate()}.${String(d.getMonth()+1).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} — ${a}`);
+    store.set("notes",n); return reply("Записал."); }
+  if((a=after(t,["поставь таймер на","поставь таймер","таймер на","таймер","разбуди через","напомни через"]))!==null){
+    const sec=duration(a||""); if(!sec) return reply("На сколько поставить таймер? Например: «таймер на 5 минут».");
+    const h=human(sec); setTimeout(()=>{ beep(); reply(`⏰ Время вышло! Таймер на ${h} завершён.`); }, sec*1000);
+    return reply(`Таймер на ${h} запущен. Не закрывайте приложение.`); }
+  if((a=after(t,["открой сайт","открой","запусти","зайди на","зайди в"]))){
+    const site=SITES.find(([names])=>names.includes(a));
+    if(site) return openLink(site[1],"Открываю.", "Открыть "+a+" →");
+    return openLink("https://www.google.com/search?q="+q(a),`Ищу «${a}».`); }
+  if((a=after(t,["позвони","набери"]))) return reply("Звонить я пока не умею — откройте телефон и наберите номер.");
+  if((a=after(t,["найди в интернете","поищи в интернете","найди","поищи","поиск","загугли"]))) return openLink("https://www.google.com/search?q="+q(a),`Ищу «${a}».`);
+
+  if(/\d/.test(t) && /^[\d\s.,+\-*/^()%хx×÷]*(плюс|минус|умножить на|разделить на|в степени|[+\-*/^×÷])[\d\s.,+\-*/^()%хx×÷а-я]*$/.test(t)){
+    try{ return reply("Получается "+fmt(calc(t))+"."); }catch(e){ if(e==="zero") return reply("На ноль делить нельзя."); }
+  }
+  reply("Не понял команду. Скажите «что ты умеешь».");
+}
+
+/* ---------------- speech input ---------------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const WAKE = /(?:^|\s)(джарвис|жарвис|джервис|джарвес|jarvis|дарвис|чарвис)[,.!\s]*/i;
+let rec=null, recActive=false, wantListen=false, oneShot=false, awaitingCommand=0, paused=false;
+
+function makeRec(){
+  const r=new SR(); r.lang="ru-RU"; r.interimResults=true; r.maxAlternatives=1;
+  r.continuous = true;
+  r.onstart=()=>{ recActive=true; updateMicUI(); };
+  r.onresult=e=>{
+    let interim="", finalText="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const res=e.results[i];
+      if(res.isFinal) finalText+=res[0].transcript; else interim+=res[0].transcript;
+    }
+    interimEl.textContent=interim;
+    if(finalText.trim()){ interimEl.textContent=""; onHeard(finalText.trim()); }
+  };
+  r.onerror=e=>{
+    if(e.error==="not-allowed"||e.error==="service-not-allowed"){
+      wantListen=false; setAlways(false);
+      addMsg("Нет доступа к микрофону. Разрешите микрофон для этого сайта в настройках браузера.","jarvis");
+    } else if(e.error==="network"){ setStatus("Нет интернета для распознавания","hot"); }
+  };
+  r.onend=()=>{
+    recActive=false; interimEl.textContent=""; updateMicUI();
+    if(wantListen && !paused && !speaking) setTimeout(startRec, 250);
+  };
+  return r;
+}
+function startRec(){
+  if(!SR || recActive || paused || speaking) return;
+  try{ rec = rec || makeRec(); rec.start(); }catch(e){ rec=null; }
+}
+function stopRec(){ try{ rec&&rec.stop(); }catch(e){} }
+function pauseListening(){ paused=true; if(recActive){ try{ rec.abort(); }catch(e){} } }
+function resumeListening(){ paused=false; if(wantListen) setTimeout(startRec, 300); else updateMicUI(); }
+
+function onHeard(text){
+  const always=settings.always;
+  if(oneShot){ oneShot=false; wantListen=always; addMsg(text,"user"); handle(text); if(!always) stopRec(); return; }
+  if(!always) return;
+  const now=Date.now();
+  if(!settings.wakeOnly){ addMsg(text,"user"); return handle(text); }
+  const m=text.match(WAKE);
+  if(m){
+    const cmd=text.slice(m.index+m[0].length).trim();
+    if(cmd){ addMsg(text,"user"); handle(cmd); }
+    else { awaitingCommand=now+8000; beepShort(); addMsg(text,"user"); reply("Слушаю."); }
+  } else if(awaitingCommand>now){ awaitingCommand=0; addMsg(text,"user"); handle(text); }
+}
+function beepShort(){ if(navigator.vibrate) navigator.vibrate(60); }
+
+function updateMicUI(){
+  const live = recActive && !paused;
+  micBtn.classList.toggle("on", live && (oneShot || settings.always));
+  if(speaking) return;
+  reactor.className = live ? "reactor listening" : "reactor";
+  if(live && oneShot) setStatus("● Слушаю… говорите","hot");
+  else if(live && settings.always) setStatus(settings.wakeOnly ? "● Жду слово «Джарвис»" : "● Слушаю всё","hot");
+  else setStatus("Готов","live");
+}
+
+micBtn.addEventListener("click",()=>{
+  if(!SR) return reply("Этот браузер не умеет распознавать речь. Откройте приложение в Google Chrome (Android) или Safari (iPhone).");
+  unlockAudio();
+  if(recActive && oneShot){ oneShot=false; wantListen=settings.always; if(!settings.always) stopRec(); updateMicUI(); return; }
+  synth&&synth.cancel();
+  oneShot=true; wantListen=true;
+  if(recActive){ updateMicUI(); } else startRec();
+});
+
+function setAlways(on){
+  settings.always=on; save(); $("always").checked=on; $("modeHint").textContent=on?"вкл":"выкл";
+  wantListen = on || oneShot;
+  if(on){ startRec(); requestWake(); } else if(!oneShot){ stopRec(); releaseWake(); }
+  updateMicUI();
+}
+$("always").addEventListener("change",e=>{
+  if(e.target.checked && !SR){ e.target.checked=false; return reply("Этот браузер не умеет слушать постоянно. Откройте приложение в Google Chrome."); }
+  unlockAudio(); setAlways(e.target.checked);
+  if(e.target.checked) reply(settings.wakeOnly? "Режим постоянного прослушивания включён. Скажите «Джарвис» и команду." : "Слушаю постоянно. Просто говорите команды.");
+});
+
+/* keep screen on */
+let wakeLock=null;
+async function requestWake(){ if(!settings.keepAwake || !("wakeLock" in navigator)) return; try{ wakeLock=await navigator.wakeLock.request("screen"); }catch(e){} }
+function releaseWake(){ try{ wakeLock&&wakeLock.release(); }catch(e){} wakeLock=null; }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible" && settings.always){ requestWake(); startRec(); } });
+
+/* iOS needs a user gesture before speech works */
+let audioUnlocked=false;
+function unlockAudio(){ if(audioUnlocked||!synth) return; audioUnlocked=true; try{ const u=new SpeechSynthesisUtterance(" "); u.volume=0; synth.speak(u); }catch(e){} }
+
+/* ---------------- text input & chips ---------------- */
+$("form").addEventListener("submit",e=>{ e.preventDefault(); const v=$("text").value.trim(); if(!v) return; $("text").value=""; unlockAudio(); addMsg(v,"user"); handle(v); });
+[["Время","который час"],["Погода","погода"],["Смени голос","смени голос"],["Шутка","расскажи шутку"],["Заметки","покажи заметки"],["Таймер 5 мин","таймер на 5 минут"],["Батарея","заряд батареи"],["Что умеешь?","что ты умеешь"]]
+.forEach(([label,cmd])=>{ const c=document.createElement("button"); c.className="chip"; c.textContent=label;
+  c.onclick=()=>{ unlockAudio(); addMsg(cmd,"user"); handle(cmd); }; $("chips").appendChild(c); });
+
+/* ---------------- settings ui ---------------- */
+function syncSettingsUI(){
+  $("rate").value=settings.rate; $("rateOut").textContent=(+settings.rate).toFixed(2);
+  $("pitch").value=settings.pitch; $("pitchOut").textContent=(+settings.pitch).toFixed(2);
+  $("volume").value=settings.volume; $("volOut").textContent=Math.round(settings.volume*100);
+  $("wakeOnly").checked=settings.wakeOnly; $("keepAwake").checked=settings.keepAwake; $("speakOn").checked=settings.speakOn;
+  $("userName").value=settings.userName||"";
+  document.querySelectorAll(".preset").forEach(b=>b.classList.toggle("active",b.dataset.key===settings.preset));
+}
+Object.entries(PRESETS).forEach(([k,p])=>{
+  const b=document.createElement("button"); b.className="preset"; b.dataset.key=k;
+  b.innerHTML=`<b></b><small></small>`; b.querySelector("b").textContent=p.name; b.querySelector("small").textContent=p.desc;
+  b.onclick=()=>{ unlockAudio(); applyPreset(k,false); speak(`Привет, я ${p.name}. Так звучит мой голос.`); };
+  $("presets").appendChild(b);
+});
+const bindRange=(id,key)=>$(id).addEventListener("input",e=>{ settings[key]=+e.target.value; settings.preset="custom"; save(); syncSettingsUI(); });
+bindRange("rate","rate"); bindRange("pitch","pitch"); bindRange("volume","volume");
+$("voice").addEventListener("change",e=>{ settings.voiceURI=e.target.value; save(); unlockAudio(); speak("Теперь я говорю этим голосом."); });
+$("testVoice").onclick=()=>{ unlockAudio(); speak(`${greeting()}${name()}! Я Джарвис. Все системы в норме.`); };
+$("wakeOnly").onchange=e=>{ settings.wakeOnly=e.target.checked; save(); updateMicUI(); };
+$("keepAwake").onchange=e=>{ settings.keepAwake=e.target.checked; save(); if(e.target.checked&&settings.always) requestWake(); else releaseWake(); };
+$("speakOn").onchange=e=>{ settings.speakOn=e.target.checked; save(); if(!e.target.checked) synth&&synth.cancel(); };
+$("userName").onchange=e=>{ settings.userName=e.target.value.trim(); save(); };
+$("openSettings").onclick=()=>{ syncSettingsUI(); $("sheet").classList.add("open"); };
+$("closeSettings").onclick=()=>$("sheet").classList.remove("open");
+$("sheet").addEventListener("click",e=>{ if(e.target.id==="sheet") $("sheet").classList.remove("open"); });
+$("clearChat").onclick=()=>{ store.set("history",[]); chat.innerHTML=""; $("sheet").classList.remove("open"); hint("Чат очищен"); };
+
+/* ---------------- start ---------------- */
+function restoreHistory(){
+  const h=store.get("history",[]); if(!h.length) return false;
+  h.forEach(m=>{ const el=document.createElement("div"); el.className="msg "+m.who;
+    if(m.who==="jarvis"){ const a=document.createElement("div"); a.className="avatar"; a.textContent="J"; el.appendChild(a); }
+    const b=document.createElement("div"); b.className="bubble"; b.textContent=m.text;
+    if(m.link){ const a=document.createElement("a"); a.className="go"; a.href=m.link.url; a.target="_blank"; a.rel="noopener"; a.textContent=m.link.label||"Открыть →"; b.appendChild(document.createElement("br")); b.appendChild(a); }
+    el.appendChild(b); chat.appendChild(el); });
+  hint("— продолжение —"); scroll(); return true;
+}
+if(!SR){ const w=$("warn"); w.hidden=false; w.textContent="Распознавание речи здесь недоступно. Откройте в Google Chrome на Android или Safari на iPhone — текстом работать можно и так."; }
+if(!window.isSecureContext && location.protocol!=="file:"){ const w=$("warn"); w.hidden=false; w.textContent="Микрофон работает только по адресу https://"; }
+
+$("start").onclick=()=>{
+  unlockAudio();
+  $("splash").style.display="none";
+  const restored=restoreHistory();
+  syncSettingsUI(); $("always").checked=settings.always; $("modeHint").textContent=settings.always?"вкл":"выкл";
+  reply(`${greeting()}${name()}! Джарвис на связи. ${restored?"":"Нажмите микрофон или включите «Всегда слушать» и скажите «Джарвис»."}`.trim());
+  if(settings.always) setAlways(true);
+};
+</script>
+</body>
+</html>
